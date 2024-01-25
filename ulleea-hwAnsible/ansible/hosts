@@ -1,0 +1,20 @@
+[ubuntu]
+192.168.56.100 ansible_port=2222 ansible_ssh_private_key_file=../.vagrant/machines/node1/virtualbox/private_key
+
+[centos]
+192.168.56.101 ansible_port=2200 ansible_ssh_private_key_file=../.vagrant/machines/node2/virtualbox/private_key
+
+[arch]
+192.168.56.102 ansible_port=2201 ansible_ssh_private_key_file=../.vagrant/machines/node3/virtualbox/private_key
+
+[linux]
+
+[linux:children]
+ubuntu
+centos
+arch
+
+
+[linux:vars]
+ansible_user = vagrant
+ansible_host = localhost

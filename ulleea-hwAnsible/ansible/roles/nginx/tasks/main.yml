@@ -1,0 +1,125 @@
+---
+# tasks file for nginx
+# from https://gitlab.com/fpmi-atp/tpos21/-/blob/master/practice/06-ansible/06.3-advanced/roles/nginx/tasks/main.yml
+
+  - name: Upgrade CentOS
+    become: yes
+    yum:
+      name: epel-release
+      state: latest
+    when: ansible_distribution == 'CentOS'
+
+  - name: Upgrade Arch
+    pacman:
+      update_cache: true
+      upgrade: true
+    become: yes
+    when: ansible_distribution == 'Archlinux'
+
+  - name: install latest nginx Ubuntu
+    yum:
+      name: nginx
+      state: latest
+    register: nginx_installed_ubuntu
+    become: yes
+    when: ansible_distribution == 'Ubuntu'
+    notify:
+      - Nginx restart
+
+  - name: install latest nginx CentOS
+    yum:
+      name: nginx
+      state: latest
+    register: nginx_installed_centos
+    become: yes
+    when: ansible_distribution == 'CentOS'
+    notify:
+      - Nginx restart
+
+  - name: install latest nginx Arch
+    pacman:
+      name: nginx
+      state: latest
+    register: nginx_installed_arch
+    become: yes
+    when: ansible_distribution == 'Archlinux'
+    notify:
+      - Nginx restart
+
+# from https://gist.github.com/sanrandry/bd4350a591f62eb259e48cd9fbfcd642
+
+  - name: Creates directory sites-available
+    file:
+      path: /etc/nginx/sites-available
+      state: directory
+    become: yes
+    when: ansible_distribution == 'Archlinux' or ansible_distribution == 'CentOS'
+
+  - name: Creates directory sites-enabled
+    file:
+      path: /etc/nginx/sites-enabled
+      state: directory
+    become: yes
+    when: ansible_distribution == 'Archlinux' or ansible_distribution == 'CentOS'
+
+  - name: Add a line to a file nginx.conf
+    ansible.builtin.lineinfile:
+      path: /etc/nginx/nginx.conf
+      line: include /etc/nginx/sites-enabled/*;
+      insertafter: http {
+    become: yes
+    when: ansible_distribution == 'Archlinux' or ansible_distribution == 'CentOS'
+
+  - name: Add a default conf
+    ansible.builtin.lineinfile:
+      path: /etc/nginx/sites-available/default
+      line: server { listen 80 default_server; listen [::]:80 default_server; server_name _; location /service_data { alias  /opt/service_state.json;}}
+      create: yes
+    become: yes
+    when: ansible_distribution == 'Archlinux' or ansible_distribution == 'CentOS'
+
+  - name: create symlink for Archlinux and CentOS
+    when: ansible_distribution == 'Archlinux' or ansible_distribution == 'CentOS'
+    file:
+      src: /etc/nginx/sites-available/default
+      dest: /etc/nginx/sites-enabled/default
+      state: link
+    become: yes
+
+  - name: get checksum of master file
+    delegate_to: localhost
+    register: master_checksum_state_file
+    stat:
+      path: "{{ role_path }}/templates/static_site.j2"
+      checksum_algorithm: sha1
+      get_checksum: yes
+
+  - name: get checksum of VM file
+    register: VM_checksum_state_file
+    stat:
+      path: /etc/nginx/sites-available/static_site.conf
+      checksum_algorithm: sha1
+      get_checksum: yes
+
+  - name: copy the nginx state file and restart nginx
+    when: not VM_checksum_state_file.stat.exists or
+          master_checksum_state_file.stat.checksum != VM_checksum_state_file.stat.checksum
+#    when: nginx_installed_ubuntu is succeeded and nginx_installed_centos is succeeded and nginx_installed_arch is succeeded
+    template: src=static_site.j2 dest=/etc/nginx/sites-available/static_site.conf
+    become: yes
+    register: nginx_conf_copy
+
+  - name: create symlink
+    when: nginx_conf_copy is succeeded
+    file:
+      src: /etc/nginx/sites-available/static_site.conf
+      dest: /etc/nginx/sites-enabled/default
+      state: link
+    become: yes
+
+  - name: check and reload
+    become: yes
+    when: nginx_conf_copy.changed
+    shell: /usr/sbin/nginx -t
+    notify:
+      - Nginx reload

@@ -1,0 +1,11 @@
+---
+
+- name: start nginx role
+  hosts: all
+  roles:
+    - nginx
+
+- name: state file role
+  hosts: all
+  roles:
+    - state

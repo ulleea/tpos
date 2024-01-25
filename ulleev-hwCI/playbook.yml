@@ -1,0 +1,111 @@
+---
+
+- name: update and install pip on ubuntu
+  hosts: all
+  become: yes
+  tasks:
+    - name: apt update
+      ansible.builtin.apt:
+        upgrade: yes
+        update_cache: yes
+      when: ansible_distribution == 'Ubuntu'
+    - name: intall pip
+      ansible.builtin.apt:
+        name: python3-pip
+        state: latest
+      when: ansible_distribution == 'Ubuntu'
+
+
+- name: update and install pip on centos
+  hosts: all
+  become: yes
+  tasks:
+    - name: update centos
+      command: 'yum -y install epel-release'
+      when: ansible_distribution == 'CentOS'
+
+    - name: update centos one more time
+      command: 'yum -y update'
+      when: ansible_distribution == 'CentOS'
+
+    - name: install wget
+      ansible.builtin.yum:
+        name:
+          - wget
+          - openssl-devel
+          - bzip2-devel
+          - libffi-devel
+          - xz-devel
+      when: ansible_distribution == 'CentOS'
+
+    - name: install Development Tools
+      command: 'yum -y groupinstall "Development Tools"'
+      when: ansible_distribution == 'CentOS'
+
+    - name: install tgz python
+      shell: 'wget https://www.python.org/ftp/python/3.8.10/Python-3.8.10.tgz && tar xzf Python-3.8.10.tgz'
+      when: ansible_distribution == 'CentOS'
+
+    - name: remove tgz file
+      shell: 'rm Python-3.8.10.tgz'
+      when: ansible_distribution == 'CentOS'
+
+    - name: prepare to install python
+      shell: 'cd Python-3.8.10 && bash configure --enable-optimizations'
+      when: ansible_distribution == 'CentOS'
+
+    - name: check path Makefile
+      shell: 'cd Python-3.8.10 && ls'
+      when: ansible_distribution == 'CentOS'
+
+    - name: check Makefile
+      shell: 'cd Python-3.8.10 && cat Makefile | grep altinstall'
+      when: ansible_distribution == 'CentOS'
+
+    - name: install python
+      shell: 'cd Python-3.8.10 && make altinstall'
+      when: ansible_distribution == 'CentOS'
+
+#    - name: intall pip
+#      ansible.builtin.yum:
+#        name: python3-pip
+#        state: latest
+#      when: ansible_distribution == 'CentOS'
+    - name: intall unzip
+      ansible.builtin.yum:
+        name: unzip
+        state: latest
+      when: ansible_distribution == 'CentOS'
+
+
+
+- name: Download artifact ubuntu
+  hosts: all
+  tasks:
+    - name: download artifact ubuntu
+      command: 'curl --location --header "PRIVATE-TOKEN: V_ykNMz54UyGjRQy4NPP" "https://gitlab.atp-fivt.org/api/v4/projects/2198/jobs/artifacts/staging/download?job=build_ubuntu" --output artifacts.zip'
+      when: ansible_distribution == 'Ubuntu'
+
+    - name: unzip artifact ubuntu
+      command: 'unzip artifacts.zip'
+      when: ansible_distribution == 'Ubuntu'
+
+    - name: install library on ubuntu
+      shell: 'pip3 install dist/pyupgrade*.whl'
+      when: ansible_distribution == 'Ubuntu'
+
+
+- name: Download artifact centos
+  hosts: all
+  tasks:
+    - name: download artifact centos
+      command: 'curl --location --header "PRIVATE-TOKEN: V_ykNMz54UyGjRQy4NPP" "https://gitlab.atp-fivt.org/api/v4/projects/2198/jobs/artifacts/staging/download?job=build_centos" --output artifacts.zip'
+      when: ansible_distribution == 'CentOS'
+
+    - name: unzip artifact centos
+      command: 'unzip artifacts.zip'
+      when: ansible_distribution == 'CentOS'
+
+    - name: install library on centos
+      shell: 'Python-3.8.10/python -m pip install dist/pyupgrade*.whl'
+      when: ansible_distribution == 'CentOS'

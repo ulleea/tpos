@@ -1,0 +1,19 @@
+FROM ubuntu:22.04
+
+# подготовим Ubuntu
+RUN apt-get update \
+    && apt -y upgrade \
+    && apt install -y python3-pip \
+    && apt install make -y \
+    && pip install --upgrade pip \
+    && pip install poetry
+
+
+RUN mkdir /app
+WORKDIR /app
+COPY ../pyproject.toml ../poetry.lock ./
+
+ENV PYTHONPATH=${PYTHONPATH}:${PWD}
+
+RUN poetry config virtualenvs.in-project true \
+   && poetry install --no-dev --no-interaction --no-ansi

@@ -1,0 +1,13 @@
+FROM centos/python-38-centos7:latest
+USER root
+RUN pip install --upgrade pip \
+    && mkdir /app \
+    && pip install poetry
+
+WORKDIR /app
+COPY ../pyproject.toml ../poetry.lock ./
+
+ENV PYTHONPATH=${PYTHONPATH}:${PWD}
+
+RUN poetry config virtualenvs.in-project true \
+   && poetry install --no-dev --no-interaction --no-ansi

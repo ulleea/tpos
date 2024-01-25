@@ -1,0 +1,64 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+require 'etc'
+
+def form_ips(is_home = "false", num = 0)
+    @is_home = is_home.to_s.downcase == "true"
+    @header = "10.211."
+    return "192.168.56.%d" % [100 + num]
+end
+
+@ip1 = form_ips ENV['IS_HOME'], 0
+@ip2 = form_ips ENV['IS_HOME'], 1
+@ip3 = form_ips ENV['IS_HOME'], 2
+
+puts "This script will start these VMs:"
+puts "%s-node1 with IP %s" % [Etc.getlogin, @ip1]
+puts "%s-node2 with IP %s" % [Etc.getlogin, @ip2]
+
+
+$update_ubuntu = <<SCRIPT
+apt update
+SCRIPT
+
+
+Vagrant.configure("2") do |config|
+
+  config.hostmanager.enabled = false
+  config.hostmanager.manage_host = true
+  config.hostmanager.include_offline = true
+  config.hostmanager.ignore_private_ip = false
+
+  config.ssh.forward_agent = true
+  config.vm.synced_folder '.', '/vagrant', disabled: true
+
+  config.vm.define :node1 do |node1|
+    node1.vm.box = "ubuntu2204"
+    node1.vm.provider "virtualbox" do |vb|
+      vb.cpus = "1"
+      vb.memory = "1024"
+    end
+    node1.vm.network :private_network, ip: @ip1
+    node1.vm.hostname = Etc.getlogin + "-node1"
+    node1.vm.provision "ansible" do |ansible|
+        ansible.verbose = "v"
+        ansible.playbook = "playbook.yml"
+    end
+
+  end
+
+  config.vm.define :node2 do |node2|
+    node2.vm.box = "centos7"
+    node2.vm.provider "virtualbox" do |vb|
+      vb.cpus = "1"
+      vb.memory = "1024"
+    end
+    node2.vm.network :private_network, ip: @ip2
+    node2.vm.hostname = Etc.getlogin + "-node2"
+    node2.vm.provision "ansible" do |ansible|
+        ansible.verbose = "v"
+        ansible.playbook = "playbook.yml"
+    end
+  end
+end

@@ -1,0 +1,63 @@
+version: "3.9"
+
+x-my-creds: &my-creds
+  TABLE_NAME: people_age
+  MYSQL_USER: postgres
+  MYSQL_ROOT_PASSWORD: root_passwd
+  MYSQL_PASSWORD: root_passwd
+  MYSQL_DATABASE: data
+
+networks:
+  dockervlan:
+    name: ulle_macvlan
+    driver: macvlan
+    driver_opts:
+      parent: eth0.10
+    ipam:
+      config:
+        - subnet: "192.168.1.0/24"
+          gateway: "192.168.1.26"
+
+
+services:
+  db:
+    image: mariadb
+    container_name: db
+    restart: always
+    hostname: data
+    environment:
+      <<: *my-creds
+    networks:
+      dockervlan:
+        ipv4_address: 192.168.1.10
+
+
+  filler:
+    build: uploader
+    restart: on-failure
+    volumes:
+      - ./data:/app/data
+    environment:
+      DBHOST: data
+      PORT: 5432
+      <<: *my-creds
+    networks:
+      dockervlan:
+        ipv4_address: 192.168.1.20
+    depends_on:
+      - db
+
+  web:
+    build: app
+    environment:
+      SERVICE_PORT: 8000
+      DBHOST: db_service
+      PORT: 5432
+      <<: *my-creds
+    ports:
+      - "8000:8000"
+    networks:
+      dockervlan:
+        ipv4_address: 192.168.1.26
+    depends_on:
+      - filler

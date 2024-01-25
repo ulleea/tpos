@@ -1,0 +1,34 @@
+---
+# tasks file for state
+
+  - name: get first row master state file
+    delegate_to: localhost
+    register: first_row_master_state_file
+    shell: "sed -n '1p' {{ role_path }}/files/service_state.json"
+
+  - name: get first row VM state file
+    register: first_row_VM_state_file
+    shell: "sed -n '1p' /opt/service_state.json || echo 'no VM file'"
+
+  - name: copy state file from master to VM
+    register: copy_info
+    copy:
+      src: service_state.json
+      dest: /opt/service_state.json
+      force: yes
+    become: yes
+    when: first_row_master_state_file.stdout != first_row_VM_state_file.stdout
+
+  - name: install cron on Arch
+    pacman:
+      name: cron
+      state: latest
+    become: yes
+    when: ansible_distribution == 'Archlinux'
+
+  - name: cron update state file
+    become: yes
+    cron:
+      name: update service_state.json
+      job: "echo '$(jq '.uptime = $(($(ps -o etimes= -p $(cat /var/run/nginx.pid)) / 60))' /opt/service_state.json)' > /opt/service_state.json"
+

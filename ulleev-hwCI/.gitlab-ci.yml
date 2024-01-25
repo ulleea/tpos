@@ -1,0 +1,56 @@
+default:
+  tags:
+    - docker_pd
+
+
+variables:
+  TEST_IMAGE_UBUNTU: registry.gitlab.atp-fivt.org/tpos2023/ulleev-hwCI/test_env_ubuntu:latest
+  TEST_IMAGE_CENTOS: registry.gitlab.atp-fivt.org/tpos2023/Ulleev-hwCI/test_env_centos:latest
+
+stages:
+  - test
+  - build
+
+
+
+.run test:
+  stage: test
+  before_script:
+    - cd /app
+    - cp -r $CI_PROJECT_DIR/* /app/
+  script:
+    - make test
+  rules:
+    - if: ($CI_PIPELINE_SOURCE == 'merge_request_event') || ($CI_PIPELINE_SOURCE == 'push')
+    - when: never
+
+.build whl:
+  stage: build
+  script:
+    - make build
+  artifacts:
+    paths:
+      - dist/pyupgrade*.whl
+    expire_in: 4 week
+  rules:
+    - if: ($CI_PIPELINE_SOURCE == 'merge_request_event') && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == 'main') && ($CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == 'staging')
+    - if: ($CI_PIPELINE_SOURCE == 'merge_request_event') && ($CI_MERGE_REQUEST_TARGET_BRANCH_NAME == 'staging') && ($CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == 'dev')
+    - if: $CI_PIPELINE_SOURCE == "push" && ($CI_COMMIT_BRANCH == "staging" || $CI_COMMIT_BRANCH == "main")
+    - when: manual
+
+
+run_tests_ubuntu:
+  extends: .run test
+  image: $TEST_IMAGE_UBUNTU
+
+run_tests_centos:
+  extends: .run test
+  image: $TEST_IMAGE_CENTOS
+
+build_ubuntu:
+  extends: .build whl
+  image: $TEST_IMAGE_UBUNTU
+
+build_centos:
+  extends: .build whl
+  image: $TEST_IMAGE_CENTOS
